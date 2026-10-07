@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>دردشة حقيقية</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',Tahoma,sans-serif}
+:root{--blue:#0d6efd;--green:#20c997;--blue-dark:#0a58ca;--green-dark:#1aa179}
+body{background:linear-gradient(135deg,#e0f2fe,#d1fae5);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:15px}
+.container{width:100%;max-width:500px;background:#fff;border-radius:20px;box-shadow:0 10px 40px rgba(13,110,253,.15);overflow:hidden}
+.header{background:linear-gradient(135deg,var(--blue),var(--green));color:#fff;padding:25px 20px;text-align:center}
+.header h1{font-size:22px;margin-bottom:5px}
+.header p{font-size:13px;opacity:.9}
+.content{padding:25px 20px}
+.btn{width:100%;padding:15px;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;margin-bottom:12px;color:#fff}
+.btn-blue{background:linear-gradient(135deg,var(--blue),var(--blue-dark))}
+.btn-green{background:linear-gradient(135deg,var(--green),var(--green-dark))}
+.btn-purple{background:linear-gradient(135deg,#8b5cf6,#6d28d9)}
+.btn-outline{background:#fff;color:var(--blue);border:2px solid var(--blue)}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+input{width:100%;padding:14px;border:2px solid #e0e7ff;border-radius:12px;font-size:16px;margin-bottom:12px;text-align:center}
+input:focus{outline:none;border-color:var(--green)}
+.code-input{font-size:28px;font-weight:bold;letter-spacing:8px;text-transform:uppercase;color:var(--blue)}
+#bigCode{font-size:44px;font-weight:bold;letter-spacing:10px;color:var(--blue);text-align:center;padding:15px;background:#f0f9ff;border-radius:12px;margin:15px 0}
+.chat-header{background:linear-gradient(135deg,var(--blue),var(--green));color:#fff;padding:15px 20px;display:flex;justify-content:space-between;align-items:center}
+.chat-header.global{background:linear-gradient(135deg,#8b5cf6,#6d28d9)}
+.chat-header .room-code{background:rgba(255,255,255,.25);padding:5px 12px;border-radius:8px;font-weight:bold;letter-spacing:2px}
+.leave-btn{background:rgba(255,255,255,.2);border:none;color:#fff;padding:6px 12px;border-radius:8px;cursor:pointer;font-size:13px}
+.messages{height:400px;overflow-y:auto;padding:15px;background:#f0f9ff;display:flex;flex-direction:column;gap:8px}
+.msg{max-width:75%;padding:10px 14px;border-radius:16px;font-size:14px;word-wrap:break-word;animation:fade .2s}
+@keyframes fade{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+.msg.me{background:linear-gradient(135deg,var(--blue),var(--blue-dark));color:#fff;align-self:flex-start;border-bottom-right-radius:4px}
+.msg.other{background:#fff;color:#333;align-self:flex-end;border:1px solid #e0e7ff;border-bottom-left-radius:4px}
+.msg img{max-width:100%;border-radius:8px;margin-top:5px}
+.msg audio{width:220px;margin-top:5px}
+.input-bar{display:flex;padding:10px;background:#fff;border-top:1px solid #e0e7ff;gap:6px;align-items:center}
+.input-bar input[type=text]{flex:1;margin:0;text-align:right;padding:12px}
+.icon-btn{background:#f0f9ff;border:none;width:44px;height:44px;border-radius:50%;cursor:pointer;font-size:18px;color:var(--blue);display:flex;align-items:center;justify-content:center}
+.icon-btn:active{transform:scale(.9)}
+.send-btn{background:linear-gradient(135deg,var(--blue),var(--green));color:#fff}
+.recording{background:#ef4444!important;color:#fff!important;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+.hidden{display:none!important}
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 20px;border-radius:10px;font-size:14px;z-index:1000;opacity:0;transition:opacity .3s;max-width:90%}
+.toast.show{opacity:1}
+#status{font-size:14px;color:#666;text-align:center;min-height:20px;margin-top:10px}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div id="homeScreen">
+    <div class="header"><h1>💬 دردشة حقيقية</h1><p>اتصال مباشر بين الجهازين (P2P)</p></div>
+    <div class="content">
+      <button class="btn btn-blue" id="createBtn">➕ إنشاء غرفة</button>
+      <button class="btn btn-green" id="joinBtn">🔗 الانضمام إلى غرفة</button>
+      <button class="btn btn-purple" id="globalBtn">🌍 الغرفة العالمية</button>
+      <div id="status"></div>
+    </div>
+  </div>
+
+  <div id="waitScreen" class="hidden">
+    <div class="header"><h1>✅ تم إنشاء الغرفة</h1><p>أعط هذا الكود لصاحبك</p></div>
+    <div class="content">
+      <div id="bigCode">----</div>
+      <p style="text-align:center;color:#666;font-size:13px;margin-bottom:15px">بانتظار انضمام صاحبك...</p>
+      <button class="btn btn-outline" id="cancelWait">إلغاء</button>
+    </div>
+  </div>
+
+  <div id="joinScreen" class="hidden">
+    <div class="header"><h1>🔗 انضم لغرفة</h1><p>أدخل الكود المكون من 4 أحرف</p></div>
+    <div class="content">
+      <input type="text" id="joinCode" class="code-input" maxlength="4" placeholder="ABCD">
+      <button class="btn btn-green" id="joinOk">دخول</button>
+      <button class="btn btn-outline" id="joinBack">رجوع</button>
+      <div id="joinStatus" style="text-align:center;color:#666;font-size:13px;margin-top:10px"></div>
+    </div>
+  </div>
+
+  <div id="globalScreen" class="hidden">
+    <div class="header" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)">
+      <h1>🌍 الغرفة العالمية</h1>
+      <p>أدخل كلمة السر للدخول</p>
+    </div>
+    <div class="content">
+      <input type="password" id="globalPass" placeholder="كلمة السر" 
+             style="font-size:20px;letter-spacing:3px;text-align:center">
+      <button class="btn btn-purple" id="globalOk">دخول</button>
+      <button class="btn btn-outline" id="globalBack">رجوع</button>
+      <div id="globalStatus" style="text-align:center;color:#666;font-size:13px;margin-top:10px"></div>
+    </div>
+  </div>
+
+  <div id="chatScreen" class="hidden">
+    <div class="chat-header" id="chatHeader">
+      <span>💬 <span id="roomLabel">غرفة:</span> <span class="room-code" id="roomCodeDisplay">----</span></span>
+      <button class="leave-btn" id="leaveBtn">خروج</button>
+    </div>
+    <div class="messages" id="messages"></div>
+    <div class="input-bar">
+      <button class="icon-btn" id="imgBtn" title="صورة">📷</button>
+      <button class="icon-btn" id="micBtn" title="تسجيل صوتي">🎤</button>
+      <input type="text" id="msgInput" placeholder="اكتب رسالة...">
+      <button class="icon-btn send-btn" id="sendBtn">➤</button>
+    </div>
+    <input type="file" id="imgInput" accept="image/*" class="hidden">
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.0/peerjs.min.js"></script>
+<script>
+// ============================================
+// 🔑 إعدادات الغرفة العالمية
+// ============================================
+const GLOBAL_PASSWORD = 'hesoyam';
+// ✅ ID ثابت فريد للغرفة العالمية
+const GLOBAL_HOST_ID = 'wmchat-global-hesoyam-x9k2';
+
+// ========== أدوات ==========
+const $=id=>document.getElementById(id);
+function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
+function showScreen(id){['homeScreen','waitScreen','joinScreen','globalScreen','chatScreen'].forEach(s=>$(s).classList.add('hidden'));$(id).classList.remove('hidden');}
+
+// ========== متغيرات ==========
+let peer=null,conn=null,role=null,roomCode=null;
+let isGlobal=false;
+let myId=Math.random().toString(36).substring(2,10); // ✅ ID فريد لكل جهاز
+let mediaRecorder=null,audioChunks=[];
+
+// ========== توليد كود ==========
+function genCode(){
+  const c='ABCDEFGHJKMNPQRSTUVWXYZ';
+  let s='';
+  for(let i=0;i<4;i++)s+=c[Math.floor(Math.random()*c.length)];
+  return s;
+}
+
+// ============================================
+// ➕ إنشاء غرفة عادية
+// ============================================
+$('createBtn').onclick=()=>{
+  roomCode=genCode();
+  role='host';
+  isGlobal=false;
+  $('status').textContent='جاري إنشاء الغرفة...';
+  
+  peer=new Peer('wmchat-'+roomCode,{debug:0});
+  
+  peer.on('open',()=>{
+    $('bigCode').textContent=roomCode;
+    showScreen('waitScreen');
+    $('status').textContent='';
+  });
+  
+  peer.on('connection',(c)=>{
+    if(conn&&conn.open){c.close();return;}
+    conn=c;
+    conn.on('open',()=>startChat());
+    conn.on('data',onData);
+    conn.on('close',()=>{
+      toast('⚠️ صاحبك خرج');
+      addSystemMessage('صاحبك خرج من الغرفة');
+    });
+  });
+  
+  peer.on('error',(e)=>{
+    $('status').textContent='خطأ: '+e.type;
+    if(e.type==='unavailable-id')toast('الكود مستخدم، جرب مرة ثانية');
+  });
+};
+
+$('cancelWait').onclick=()=>{
+  if(peer)peer.destroy();
+  peer=null;conn=null;roomCode=null;
+  showScreen('homeScreen');
+  $('status').textContent='';
+};
+
+// ============================================
+// 🔗 انضمام لغرفة عادية
+// ============================================
+$('joinBtn').onclick=()=>{
+  showScreen('joinScreen');
+  $('joinCode').value='';
+  $('joinStatus').textContent='';
+  $('joinCode').focus();
+};
+
+$('joinBack').onclick=()=>showScreen('homeScreen');
+
+$('joinOk').onclick=()=>{
+  const code=$('joinCode').value.trim().toUpperCase();
+  if(!/^[A-Z]{4}$/.test(code)){
+    $('joinStatus').textContent='⚠️ الكود يجب أن يكون 4 حروف';
+    return;
+  }
+  roomCode=code;
+  role='guest';
+  isGlobal=false;
+  $('joinStatus').textContent='جاري الاتصال...';
+  
+  peer=new Peer({debug:0});
+  let connected=false;
+  
+  peer.on('open',()=>{
+    conn=peer.connect('wmchat-'+code,{reliable:true});
+    
+    const timeout=setTimeout(()=>{
+      if(!connected){
+        $('joinStatus').textContent='❌ الغرفة غير موجودة';
+        toast('❌ الغرفة غير موجودة');
+        if(conn)conn.close();
+      }
+    },8000);
+    
+    conn.on('open',()=>{
+      connected=true;
+      clearTimeout(timeout);
+      startChat();
+    });
+    conn.on('data',onData);
+    conn.on('close',()=>{
+      if(connected){
+        toast('⚠️ انقطع الاتصال');
+        addSystemMessage('انقطع الاتصال');
+      }
+    });
+  });
+  
+  peer.on('error',(e)=>{
+    if(e.type==='peer-unavailable'){
+      $('joinStatus').textContent='❌ الغرفة غير موجودة';
+      toast('❌ الغرفة غير موجودة');
+    }else{
+      $('joinStatus').textContent='خطأ: '+e.type;
+    }
+  });
+};
+
+$('joinCode').addEventListener('keypress',(e)=>{if(e.key==='Enter')$('joinOk').click();});
+$('joinCode').addEventListener('input',(e)=>{
+  e.target.value=e.target.value.toUpperCase().replace(/[^A-Z]/g,'');
+});
+
+// ============================================
+// 🌍 الغرفة العالمية - النسخة المُصلحة
+// ============================================
+$('globalBtn').onclick=()=>{
+  showScreen('globalScreen');
+  $('globalPass').value='';
+  $('globalStatus').textContent='';
+  $('globalPass').focus();
+};
+
+$('globalBack').onclick=()=>showScreen('homeScreen');
+
+$('globalOk').onclick=()=>{
+  const pass=$('globalPass').value.trim().toLowerCase();
+  
+  if(pass!==GLOBAL_PASSWORD){
+    $('globalStatus').textContent='❌ كلمة السر غير صحيحة';
+    toast('❌ كلمة السر غلط');
+    return;
+  }
+  
+  $('globalStatus').textContent='جاري الاتصال...';
+  isGlobal=true;
+  roomCode='GLOBAL';
+  
+  // ✅ الخطوة 1: جرب كـ Guest أولاً (بسرعة، بدون انتظار طويل)
+  connectToGlobalAsGuest();
+};
+
+// ============ محاولة الاتصال كـ Guest ============
+function connectToGlobalAsGuest(){
+  // peer مؤقت بدون ID محدد (Guest)
+  const guestPeer=new Peer({debug:0});
+  let handled=false;
+  
+  // ⏱️ مهلة قصيرة جداً (2.5 ثانية فقط)
+  const timeout=setTimeout(()=>{
+    if(!handled){
+      handled=true;
+      // فشل الاتصال → أنا أول واحد → أصبح Host
+      try{guestPeer.destroy();}catch(e){}
+      becomeGlobalHost();
+    }
+  },2500);
+  
+  guestPeer.on('open',()=>{
+    const guestConn=guestPeer.connect(GLOBAL_HOST_ID,{reliable:true});
+    
+    guestConn.on('open',()=>{
+      if(handled)return;
+      handled=true;
+      clearTimeout(timeout);
+      
+      // ✅ نجح الاتصال → أنا Guest
+      peer=guestPeer;
+      conn=guestConn;
+      role='guest';
+      
+      conn.on('data',onData);
+      conn.on('close',()=>{
+        toast('⚠️ انقطع الاتصال بالغرفة العالمية');
+        addSystemMessage('انقطع الاتصال');
+      });
+      
+      startChat();
+    });
+    
+    guestConn.on('error',()=>{
+      if(handled)return;
+      handled=true;
+      clearTimeout(timeout);
+      try{guestPeer.destroy();}catch(e){}
+      becomeGlobalHost();
+    });
+  });
+  
+  guestPeer.on('error',(e)=>{
+    if(handled)return;
+    if(e.type==='peer-unavailable'){
+      // ✅ محد موجود في الغرفة → نصير Host
+      handled=true;
+      clearTimeout(timeout);
+      try{guestPeer.destroy();}catch(e){}
+      becomeGlobalHost();
+    }else if(e.type==='unavailable-id'){
+      // نادراً ما يصير هنا، بس نتجاهل
+      handled=true;
+      clearTimeout(timeout);
+      try{guestPeer.destroy();}catch(e){}
+      becomeGlobalHost();
+    }else{
+      // أي خطأ آخر → نصير Host
+      handled=true;
+      clearTimeout(timeout);
+      try{guestPeer.destroy();}catch(e){}
+      becomeGlobalHost();
+    }
+  });
+}
+
+// ============ نصير Host للغرفة العالمية ============
+function becomeGlobalHost(){
+  peer=new Peer(GLOBAL_HOST_ID,{debug:0});
+  role='host';
+  
+  peer.on('open',()=>{
+    // ✅ أنا أول واحد
+    showScreen('chatScreen');
+    $('chatHeader').classList.add('global');
+    $('roomLabel').textContent='🌍 عالمية:';
+    $('roomCodeDisplay').textContent='متصل';
+    $('messages').innerHTML='';
+    addSystemMessage('🌍 أنت أول واحد في الغرفة العالمية');
+    addSystemMessage('بانتظار دخول آخرين...');
+    
+    peer.on('connection',(c)=>{
+      // ⚠️ رفض الاتصال إذا في واحد موصول
+      if(conn&&conn.open){
+        c.close();
+        return;
+      }
+      conn=c;
+      conn.on('open',()=>{
+        addSystemMessage('✅ دخل شخص للغرفة');
+        toast('✅ دخل شخص');
+      });
+      conn.on('data',onData);
+      conn.on('close',()=>{
+        addSystemMessage('شخص خرج من الغرفة');
+        conn=null;
+      });
+    });
+  });
+  
+  peer.on('error',(e)=>{
+    if(e.type==='unavailable-id'){
+      // في حدا فاتح نفس الغرفة بالضبط → ننتظر شوي ونجرب كـ Guest
+      try{peer.destroy();}catch(err){}
+      setTimeout(()=>{
+        if(!conn||!conn.open){
+          connectToGlobalAsGuest();
+        }
+      },800);
+    }else{
+      $('globalStatus').textContent='خطأ: '+e.type;
+    }
+  });
+}
+
+$('globalPass').addEventListener('keypress',(e)=>{if(e.key==='Enter')$('globalOk').click();});
+
+// ============================================
+// 💬 بدء الدردشة
+// ============================================
+function startChat(){
+  showScreen('chatScreen');
+  $('messages').innerHTML='';
+  
+  if(isGlobal){
+    $('chatHeader').classList.add('global');
+    $('roomLabel').textContent='🌍 عالمية:';
+    $('roomCodeDisplay').textContent='متصل';
+    addSystemMessage('🌍 دخلت الغرفة العالمية');
+  }else{
+    $('chatHeader').classList.remove('global');
+    $('roomLabel').textContent='غرفة:';
+    $('roomCodeDisplay').textContent=roomCode;
+    addSystemMessage('✅ متصل! ابدأ الكلام');
+  }
+  
+  toast('✅ متصل');
+}
+
+// ========== استقبال البيانات ==========
+function onData(d){
+  if(!d||!d.t)return;
+  
+  // ✅ حماية: تجاهل الرسائل اللي أنا مرسلها (لمنع التكرار)
+  if(d.from===myId)return;
+  
+  if(d.t==='text')renderMessage({type:'text',text:d.text},false);
+  else if(d.t==='image')renderMessage({type:'image',data:d.data},false);
+  else if(d.t==='audio')renderMessage({type:'audio',data:d.data},false);
+}
+
+// ========== عرض رسالة ==========
+function renderMessage(msg,isMe){
+  const div=document.createElement('div');
+  div.className='msg '+(isMe?'me':'other');
+  if(msg.type==='text'){
+    div.textContent=msg.text;
+  }else if(msg.type==='image'){
+    const img=document.createElement('img');
+    img.src=msg.data;
+    div.appendChild(img);
+  }else if(msg.type==='audio'){
+    const audio=document.createElement('audio');
+    audio.controls=true;
+    audio.src=msg.data;
+    div.appendChild(audio);
+  }
+  $('messages').appendChild(div);
+  $('messages').scrollTop=$('messages').scrollHeight;
+}
+
+function addSystemMessage(text){
+  const div=document.createElement('div');
+  div.style.cssText='text-align:center;color:#888;font-size:12px;padding:5px;font-style:italic';
+  div.textContent=text;
+  $('messages').appendChild(div);
+  $('messages').scrollTop=$('messages').scrollHeight;
+}
+
+// ========== إرسال نص ==========
+function sendText(){
+  const text=$('msgInput').value.trim();
+  if(!text)return;
+  
+  // ✅ عرضها عندي فوراً
+  renderMessage({type:'text',text},true);
+  
+  // ✅ إرسالها مع ID المرسل (لمنع التكرار عند المستقبل)
+  if(conn&&conn.open){
+    conn.send({t:'text',text,from:myId});
+  }
+  
+  $('msgInput').value='';
+}
+$('sendBtn').onclick=sendText;
+$('msgInput').addEventListener('keypress',(e)=>{if(e.key==='Enter')sendText();});
+
+$('imgBtn').onclick=()=>$('imgInput').click();
+$('imgInput').onchange=(e)=>{
+  const file=e.target.files[0];
+  if(!file)return;
+  if(file.size>800000)return toast('⚠️ الصورة كبيرة (الحد 800KB)');
+  
+  const reader=new FileReader();
+  reader.onload=(ev)=>{
+    const data=ev.target.result;
+    renderMessage({type:'image',data},true);
+    if(conn&&conn.open){
+      conn.send({t:'image',data,from:myId});
+    }
+  };
+  reader.readAsDataURL(file);
+  e.target.value='';
+};
+
+$('micBtn').onclick=async()=>{
+  const btn=$('micBtn');
+  if(mediaRecorder&&mediaRecorder.state==='recording'){
+    mediaRecorder.stop();
+    btn.classList.remove('recording');
+    btn.textContent='🎤';
+    return;
+  }
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    mediaRecorder=new MediaRecorder(stream);
+    audioChunks=[];
+    mediaRecorder.ondataavailable=e=>audioChunks.push(e.data);
+    mediaRecorder.onstop=()=>{
+      const blob=new Blob(audioChunks,{type:'audio/webm'});
+      const reader=new FileReader();
+      reader.onload=(ev)=>{
+        const data=ev.target.result;
+        renderMessage({type:'audio',data},true);
+        if(conn&&conn.open){
+          conn.send({t:'audio',data,from:myId});
+        }
+      };
+      reader.readAsDataURL(blob);
+      stream.getTracks().forEach(t=>t.stop());
+    };
+    mediaRecorder.start();
+    btn.classList.add('recording');
+    btn.textContent='⏹️';
+    toast('🔴 جاري التسجيل... اضغط للإيقاف');
+  }catch(err){
+    toast('❌ لا يمكن الوصول للميكروفون');
+  }
+};
+
+// ========== خروج ==========
+$('leaveBtn').onclick=()=>{
+  if(mediaRecorder&&mediaRecorder.state==='recording')mediaRecorder.stop();
+  if(conn)conn.close();
+  if(peer)peer.destroy();
+  peer=null;conn=null;roomCode=null;
+  isGlobal=false;
+  $('chatHeader').classList.remove('global');
+  showScreen('homeScreen');
+  $('status').textContent='';
+};
+</script>
+</body>
+</html>
